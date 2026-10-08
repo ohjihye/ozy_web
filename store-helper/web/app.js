@@ -24,7 +24,7 @@ const S = {
   demo: false,
   password: store.get('password', ''),
   pack: store.get('pack', {}), // orderId → { productOrderId: 넣은 개수 }
-  settings: store.get('settings', { sender: '', senderPhone: '', driver: '', label: '60x40' }),
+  settings: store.get('settings', { sender: '', senderPhone: '', driver: '' }),
   packingId: null,
 };
 
@@ -251,8 +251,11 @@ function updateDriver() {
   $('#driverText').value = text;
   const num = (S.settings.driver || '').replace(/[^0-9]/g, '');
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+  // 번호가 없으면 받는 사람 칸이 빈 채로 문자앱이 열려서, 연락처에서 기사님을 고르면 됩니다
   $('#smsDriver').href = `sms:${num}${isIOS ? '&' : '?'}body=${encodeURIComponent(text)}`;
-  $('#driverTo').textContent = num ? `받는 사람: 기사님 ${S.settings.driver}` : '설정에서 기사님 전화번호를 넣으면 바로 문자앱이 열려요.';
+  $('#driverTo').textContent = num
+    ? `받는 사람: 기사님 ${S.settings.driver}. 문자앱이 열리면 보내기만 누르세요.`
+    : '문자앱이 열리면 받는 사람에 기사님을 골라 보내세요. 설정에 번호를 저장해 두면 바로 채워져요.';
   $('#copied').hidden = true;
 }
 
@@ -273,100 +276,21 @@ $('#copyDriver').addEventListener('click', async () => {
   $('#copied').hidden = false;
 });
 
-// ── 주소 라벨 ────────────────────────────────
-const DOTS_PER_MM = 8; // 203dpi 라벨프린터 기준
-
-function wrapText(ctx, text, maxWidth) {
-  const lines = [];
-  let line = '';
-  for (const ch of text) {
-    if (ctx.measureText(line + ch).width > maxWidth && line) { lines.push(line); line = ch.trimStart(); }
-    else line += ch;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-function drawLabel(o) {
-  const [wmm, hmm] = (S.settings.label || '60x40').split('x').map(Number);
-  const W = wmm * DOTS_PER_MM, H = hmm * DOTS_PER_MM;
-  const c = document.createElement('canvas');
-  c.width = W; c.height = H;
-  const ctx = c.getContext('2d');
-  const pad = Math.round(W * 0.05);
-  const unit = Math.min(W, H * 1.5) / 20; // 라벨 크기에 비례하는 글자 크기 단위
-  const font = (px, bold) => `${bold ? 700 : 400} ${Math.round(px)}px "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif`;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = '#000000'; ctx.textBaseline = 'top';
-
-  const r = o.recipient;
-  let y = pad;
-  ctx.font = font(unit * 0.9); ctx.fillText('받는 분', pad, y); y += unit * 1.2;
-  ctx.font = font(unit * 1.9, true); ctx.fillText(r.name, pad, y);
-  const nameW = ctx.measureText(r.name).width;
-  ctx.font = font(unit * 1.2, true); ctx.fillText(r.phone, pad + nameW + unit, y + unit * 0.55); y += unit * 2.4;
-  ctx.font = font(unit * 1.15);
-  for (const line of wrapText(ctx, `(${r.zip}) ${fullAddress(r)}`, W - pad * 2)) {
-    if (y > H - unit * 3) break;
-    ctx.fillText(line, pad, y); y += unit * 1.45;
-  }
-  // 아래쪽: 품목과 보내는 분
-  ctx.font = font(unit * 0.85);
-  const items = o.items.map((i) => `${i.name} ${i.quantity}`).join(' · ');
-  const { sender, senderPhone } = S.settings;
-  let by = H - pad - unit;
-  if (sender || senderPhone) { ctx.fillText(`보내는 분 ${[sender, senderPhone].filter(Boolean).join(' ')}`, pad, by); by -= unit * 1.2; }
-  ctx.fillText(wrapText(ctx, items, W - pad * 2)[0] || '', pad, by);
-  ctx.fillRect(pad, by - unit * 0.4, W - pad * 2, Math.max(2, unit * 0.08));
-  return c;
-}
-
-function updateLabels() {
-  const box = $('#labelPreview');
-  box.innerHTML = '';
-  for (const o of picked($('#labelPick'))) box.append(drawLabel(o));
-}
-
-$('#openLabels').addEventListener('click', async () => {
-  renderPick($('#labelPick'), updateLabels);
-  $('#labelSheet').hidden = false;
-  await document.fonts?.ready;
-  updateLabels();
-});
-
-$('#saveLabels').addEventListener('click', async () => {
-  const canvases = [...$('#labelPreview').querySelectorAll('canvas')];
-  const blobs = await Promise.all(canvases.map((c) => new Promise((res) => c.toBlob(res, 'image/png'))));
-  const files = blobs.map((b, i) => new File([b], `label-${i + 1}.png`, { type: 'image/png' }));
-  try {
-    if (navigator.canShare?.({ files })) return await navigator.share({ files });
-  } catch (e) {
-    if (e.name === 'AbortError') return;
-  }
-  files.forEach((f) => {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(f);
-    a.download = f.name;
-    a.click();
-  });
-});
-
-$('#printLabels').addEventListener('click', () => {
-  const [w, h] = (S.settings.label || '60x40').split('x');
-  let style = document.getElementById('pageSize');
-  if (!style) { style = document.createElement('style'); style.id = 'pageSize'; document.head.append(style); }
-  style.textContent = `@page { size: ${w}mm ${h}mm; margin: 0; }`;
-  $('#printArea').innerHTML = [...$('#labelPreview').querySelectorAll('canvas')]
-    .map((c) => `<img src="${c.toDataURL('image/png')}" alt="">`).join('');
-  window.print();
-});
-
 // ── 설정 ────────────────────────────────────
 function fillSettings() {
   $('#setSender').value = S.settings.sender || '';
   $('#setSenderPhone').value = S.settings.senderPhone || '';
   $('#setDriver').value = S.settings.driver || '';
-  $('#setLabel').value = S.settings.label || '60x40';
+}
+// 연락처에서 고르기: 안드로이드 크롬만 지원 (아이폰 사파리는 미지원 → 버튼 숨김)
+if ('contacts' in navigator && 'select' in navigator.contacts) {
+  $('#pickDriver').hidden = false;
+  $('#pickDriver').addEventListener('click', async () => {
+    try {
+      const [c] = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+      if (c?.tel?.[0]) $('#setDriver').value = c.tel[0];
+    } catch { /* 취소 */ }
+  });
 }
 $('#settingsForm').addEventListener('submit', (ev) => {
   ev.preventDefault();
@@ -374,7 +298,6 @@ $('#settingsForm').addEventListener('submit', (ev) => {
     sender: $('#setSender').value.trim(),
     senderPhone: $('#setSenderPhone').value.trim(),
     driver: $('#setDriver').value.trim(),
-    label: $('#setLabel').value,
   };
   store.set('settings', S.settings);
   $('#settingsSaved').hidden = false;

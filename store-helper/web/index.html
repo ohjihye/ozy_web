@@ -45,10 +45,7 @@
 
   <main>
     <section id="panel-orders" class="panel">
-      <div class="bulk">
-        <button class="btn primary" id="openDriver" type="button">기사님 문자</button>
-        <button class="btn" id="openLabels" type="button">주소 라벨</button>
-      </div>
+      <button class="btn primary wide" id="openDriver" type="button">기사님께 발송 문자 보내기</button>
       <ol class="orders" id="orders"></ol>
     </section>
 
@@ -64,15 +61,11 @@
         <label for="setSenderPhone">보내는 분 전화번호</label>
         <input id="setSenderPhone" name="senderPhone" inputmode="tel" autocomplete="off" placeholder="010-0000-0000">
         <label for="setDriver">한진 기사님 전화번호</label>
-        <input id="setDriver" name="driver" inputmode="tel" autocomplete="off" placeholder="010-0000-0000">
-        <label for="setLabel">라벨 크기</label>
-        <select id="setLabel" name="label">
-          <option value="60x40">60 × 40 mm</option>
-          <option value="70x50">70 × 50 mm</option>
-          <option value="80x50">80 × 50 mm</option>
-          <option value="100x70">100 × 70 mm</option>
-          <option value="100x150">100 × 150 mm</option>
-        </select>
+        <div class="row">
+          <input id="setDriver" name="driver" inputmode="tel" autocomplete="off" placeholder="010-0000-0000">
+          <button class="btn" id="pickDriver" type="button" hidden>연락처에서 고르기</button>
+        </div>
+        <p class="hint">비워 두면 문자앱에서 받는 사람을 직접 고를 수 있어요.</p>
         <p class="hint">이 정보는 이 폰에만 저장돼요.</p>
         <button class="btn primary" type="submit">저장</button>
         <p class="toast-inline" id="settingsSaved" role="status" hidden>저장했어요</p>
@@ -109,27 +102,10 @@
     <textarea id="driverText" rows="12"></textarea>
     <p class="hint" id="driverTo"></p>
     <div class="bulk">
-      <button class="btn primary" id="copyDriver" type="button">문자 내용 복사</button>
-      <a class="btn" id="smsDriver" href="#">문자앱 열기</a>
+      <a class="btn primary" id="smsDriver" href="#">문자 보내기</a>
+      <button class="btn" id="copyDriver" type="button">내용 복사</button>
     </div>
     <p class="toast-inline" id="copied" role="status" hidden>복사했어요. 문자앱에 붙여넣으세요.</p>
-  </div>
-</section>
-
-<!-- 라벨 -->
-<section class="sheet" id="labelSheet" hidden aria-labelledby="labelTitle">
-  <div class="sheet-body">
-    <header class="sheet-head">
-      <button class="icon-btn" data-close type="button" aria-label="닫기">←</button>
-      <h2 id="labelTitle">주소 라벨</h2>
-    </header>
-    <div id="labelPick" class="pick"></div>
-    <div id="labelPreview" class="label-preview"></div>
-    <div class="bulk">
-      <button class="btn primary" id="saveLabels" type="button">라벨 이미지 저장</button>
-      <button class="btn" id="printLabels" type="button">바로 인쇄</button>
-    </div>
-    <p class="hint">라벨프린터 앱에서 저장한 이미지를 불러와 인쇄하세요. 프린터가 폰 인쇄를 지원하면 ‘바로 인쇄’를 쓸 수 있어요.</p>
   </div>
 </section>
 
@@ -144,7 +120,6 @@
   </form>
 </section>
 
-<div id="printArea" aria-hidden="true"></div>
 <script src="demo-data.js"></script>
 <script src="app.js"></script>
 </body>

@@ -106,6 +106,9 @@ h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wra
 .inquiry small { color: var(--muted); }
 
 .form { display: grid; gap: 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row input { flex: 1 1 180px; }
+.row .btn { flex: 0 0 auto; min-height: 50px; }
 .form label { font-weight: 600; font-size: 15px; margin-top: 6px; }
 .form input, .form select, textarea {
   width: 100%; min-height: 50px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid var(--line);
@@ -148,15 +151,7 @@ textarea { line-height: 1.5; resize: vertical; }
 .pick label { display: flex; gap: 10px; align-items: center; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
 .pick input { width: 22px; height: 22px; accent-color: var(--accent); }
 
-.label-preview { display: grid; gap: 10px; justify-items: center; }
-.label-preview canvas { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 6px; background: #ffffff; }
 
-#printArea { display: none; }
-@media print {
-  #app, .sheet { display: none !important; }
-  #printArea { display: block; }
-  #printArea img { display: block; width: 100%; height: auto; page-break-after: always; break-after: page; }
-}
 @media (prefers-reduced-motion: no-preference) {
   .tap { transition: background-color 120ms, transform 120ms; }
   .tap:active { transform: scale(0.94); }
