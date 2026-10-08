@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>생강청 주문도우미</title>
+<meta name="theme-color" content="#7a4a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>주문도우미</h1>
+    </div>
+    <p class="sync" id="sync">불러오는 중…</p>
+  </header>
+
+  <p class="demo-note" id="demoNote" hidden>예시 데이터로 보여주는 화면이에요. 실제 주문이 아닙니다.</p>
+
+  <section class="summary" aria-label="오늘 할 일">
+    <button class="stat" data-tab="orders" type="button">
+      <span class="stat-num" id="statOrders">0</span><span class="stat-label">발송할 주문</span>
+    </button>
+    <button class="stat" data-tab="orders" type="button">
+      <span class="stat-num" id="statPacked">0</span><span class="stat-label">포장 완료</span>
+    </button>
+    <button class="stat" data-tab="inquiries" type="button">
+      <span class="stat-num" id="statInq">0</span><span class="stat-label">새 문의</span>
+    </button>
+  </section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-orders" data-tab="orders" aria-selected="true" type="button">주문</button>
+    <button role="tab" id="tab-inquiries" data-tab="inquiries" aria-selected="false" type="button">문의</button>
+    <button role="tab" id="tab-settings" data-tab="settings" aria-selected="false" type="button">설정</button>
+  </nav>
+
+  <main>
+    <section id="panel-orders" class="panel">
+      <div class="bulk">
+        <button class="btn primary" id="openDriver" type="button">기사님 문자</button>
+        <button class="btn" id="openLabels" type="button">주소 라벨</button>
+      </div>
+      <ol class="orders" id="orders"></ol>
+    </section>
+
+    <section id="panel-inquiries" class="panel" hidden>
+      <ul class="inquiries" id="inquiries"></ul>
+      <a class="btn wide" href="https://sell.smartstore.naver.com/" target="_blank" rel="noopener">스마트스토어센터에서 답변하기</a>
+    </section>
+
+    <section id="panel-settings" class="panel" hidden>
+      <form id="settingsForm" class="form">
+        <label for="setSender">보내는 분 이름</label>
+        <input id="setSender" name="sender" autocomplete="off" placeholder="예: 생강청 공방">
+        <label for="setSenderPhone">보내는 분 전화번호</label>
+        <input id="setSenderPhone" name="senderPhone" inputmode="tel" autocomplete="off" placeholder="010-0000-0000">
+        <label for="setDriver">한진 기사님 전화번호</label>
+        <input id="setDriver" name="driver" inputmode="tel" autocomplete="off" placeholder="010-0000-0000">
+        <label for="setLabel">라벨 크기</label>
+        <select id="setLabel" name="label">
+          <option value="60x40">60 × 40 mm</option>
+          <option value="70x50">70 × 50 mm</option>
+          <option value="80x50">80 × 50 mm</option>
+          <option value="100x70">100 × 70 mm</option>
+          <option value="100x150">100 × 150 mm</option>
+        </select>
+        <p class="hint">이 정보는 이 폰에만 저장돼요.</p>
+        <button class="btn primary" type="submit">저장</button>
+        <p class="toast-inline" id="settingsSaved" role="status" hidden>저장했어요</p>
+      </form>
+      <div class="danger">
+        <button class="btn" id="refresh" type="button">지금 주문 확인</button>
+        <button class="btn" id="fakeOrder" type="button" hidden>가짜 주문 추가 (개발용)</button>
+        <button class="btn" id="logout" type="button">로그아웃</button>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 포장 검수 -->
+<section class="sheet" id="packSheet" hidden aria-labelledby="packTitle">
+  <div class="sheet-body">
+    <header class="sheet-head">
+      <button class="icon-btn" data-close type="button" aria-label="닫기">←</button>
+      <h2 id="packTitle">포장 확인</h2>
+    </header>
+    <div id="packContent"></div>
+  </div>
+</section>
+
+<!-- 기사님 문자 -->
+<section class="sheet" id="driverSheet" hidden aria-labelledby="driverTitle">
+  <div class="sheet-body">
+    <header class="sheet-head">
+      <button class="icon-btn" data-close type="button" aria-label="닫기">←</button>
+      <h2 id="driverTitle">기사님께 보낼 문자</h2>
+    </header>
+    <div id="driverPick" class="pick"></div>
+    <label for="driverText" class="sr-only">문자 내용</label>
+    <textarea id="driverText" rows="12"></textarea>
+    <p class="hint" id="driverTo"></p>
+    <div class="bulk">
+      <button class="btn primary" id="copyDriver" type="button">문자 내용 복사</button>
+      <a class="btn" id="smsDriver" href="#">문자앱 열기</a>
+    </div>
+    <p class="toast-inline" id="copied" role="status" hidden>복사했어요. 문자앱에 붙여넣으세요.</p>
+  </div>
+</section>
+
+<!-- 라벨 -->
+<section class="sheet" id="labelSheet" hidden aria-labelledby="labelTitle">
+  <div class="sheet-body">
+    <header class="sheet-head">
+      <button class="icon-btn" data-close type="button" aria-label="닫기">←</button>
+      <h2 id="labelTitle">주소 라벨</h2>
+    </header>
+    <div id="labelPick" class="pick"></div>
+    <div id="labelPreview" class="label-preview"></div>
+    <div class="bulk">
+      <button class="btn primary" id="saveLabels" type="button">라벨 이미지 저장</button>
+      <button class="btn" id="printLabels" type="button">바로 인쇄</button>
+    </div>
+    <p class="hint">라벨프린터 앱에서 저장한 이미지를 불러와 인쇄하세요. 프린터가 폰 인쇄를 지원하면 ‘바로 인쇄’를 쓸 수 있어요.</p>
+  </div>
+</section>
+
+<!-- 로그인 -->
+<section class="sheet login" id="loginSheet" hidden aria-labelledby="loginTitle">
+  <form class="sheet-body form" id="loginForm">
+    <h2 id="loginTitle">비밀번호를 입력하세요</h2>
+    <label for="password" class="sr-only">비밀번호</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <p class="error" id="loginError" hidden>비밀번호가 맞지 않아요. 다시 입력해 주세요.</p>
+    <button class="btn primary" type="submit">들어가기</button>
+  </form>
+</section>
+
+<div id="printArea" aria-hidden="true"></div>
+<script src="demo-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

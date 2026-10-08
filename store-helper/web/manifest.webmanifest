@@ -1,0 +1,9 @@
+{
+  "name": "생강청 주문도우미",
+  "short_name": "주문도우미",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f3f2ec",
+  "theme_color": "#7a4a12",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

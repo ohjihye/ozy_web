@@ -1,0 +1,14 @@
+[
+  { "id": "ginger-650", "name": "착즙 생강청 650g", "color": "#c98a1b",
+    "match": ["생강청", "650"], "exclude": ["레몬", "스틱"] },
+  { "id": "lemon-ginger-650", "name": "착즙 레몬생강청 650g", "color": "#e3c22b",
+    "match": ["레몬생강청", "650"], "exclude": ["스틱"] },
+  { "id": "ginger-stick-20", "name": "생강청 스틱 20개 세트", "color": "#8a5a14",
+    "match": ["생강청", "스틱", "20개"], "exclude": ["레몬"] },
+  { "id": "ginger-stick-40", "name": "생강청 스틱 40개 세트", "color": "#5e3c0b",
+    "match": ["생강청", "스틱", "40개"], "exclude": ["레몬"] },
+  { "id": "lemon-ginger-stick-20", "name": "레몬생강청 스틱 20개 세트", "color": "#9bb51e",
+    "match": ["레몬생강청", "스틱", "20개"], "exclude": [] },
+  { "id": "lemon-ginger-stick-40", "name": "레몬생강청 스틱 40개 세트", "color": "#5f7a12",
+    "match": ["레몬생강청", "스틱", "40개"], "exclude": [] }
+]
