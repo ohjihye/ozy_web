@@ -24,6 +24,7 @@
   </header>
 
   <p class="demo-note" id="demoNote" hidden>예시 데이터로 보여주는 화면이에요. 실제 주문이 아닙니다.</p>
+  <p class="demo-note" id="detailsNote" hidden>네이버에서 받는 분 정보를 가져오지 못했어요. 잠시 후 다시 확인해 주세요.</p>
 
   <section class="summary" aria-label="오늘 할 일">
     <button class="stat" data-tab="orders" type="button">
@@ -74,6 +75,8 @@
         <button class="btn" id="refresh" type="button">지금 주문 확인</button>
         <button class="btn" id="fakeOrder" type="button" hidden>가짜 주문 추가 (개발용)</button>
         <button class="btn" id="logout" type="button">로그아웃</button>
+        <button class="btn" id="logoutAll" type="button">모든 기기 로그아웃</button>
+        <p class="hint">폰을 잃어버렸으면 다른 폰에서 ‘모든 기기 로그아웃’을 누르세요.</p>
       </div>
     </section>
   </main>
@@ -114,7 +117,7 @@
   <form class="sheet-body form" id="loginForm">
     <h2 id="loginTitle">비밀번호를 입력하세요</h2>
     <label for="password" class="sr-only">비밀번호</label>
-    <input id="password" type="password" autocomplete="current-password" required>
+    <input id="password" type="password" autocomplete="current-password" required maxlength="200">
     <p class="error" id="loginError" hidden>비밀번호가 맞지 않아요. 다시 입력해 주세요.</p>
     <button class="btn primary" type="submit">들어가기</button>
   </form>

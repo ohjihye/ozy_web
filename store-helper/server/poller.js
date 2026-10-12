@@ -4,6 +4,7 @@ import * as mock from './mock.js';
 import { getState, save, prune } from './store.js';
 import { loadProducts, groupOrders } from './products.js';
 import { notifyNewOrders, notifyNewInquiries } from './notify.js';
+import { remember, forget, withoutPersonal } from './details.js';
 
 const FIRST_RUN_DAYS = 3; // 처음 실행 시 며칠 전까지 거슬러 올라가 발송 전 주문을 가져올지
 const OVERLAP_MS = 5 * 60 * 1000; // 조회 구간을 5분 겹쳐서 누락 방지
@@ -14,7 +15,8 @@ export function applyProductOrders(productOrders, { notify = true } = {}) {
   const fresh = [];
   for (const po of productOrders) {
     if (po.status === 'PAYED') {
-      state.productOrders[po.productOrderId] = po;
+      remember(po); // 개인정보는 메모리에만
+      state.productOrders[po.productOrderId] = withoutPersonal(po);
       if (!state.seenProductOrders[po.productOrderId]) {
         state.seenProductOrders[po.productOrderId] = new Date().toISOString();
         if (notify) fresh.push(po);
@@ -22,17 +24,22 @@ export function applyProductOrders(productOrders, { notify = true } = {}) {
     } else {
       // 발송·취소·반품 등 → 더 이상 처리할 필요 없음, 고객 정보도 삭제
       delete state.productOrders[po.productOrderId];
+      forget(po.productOrderId);
       state.seenProductOrders[po.productOrderId] ||= new Date().toISOString();
     }
   }
   return groupOrders(loadProducts(), fresh);
 }
 
+// 미답변 문의 목록은 고객이 쓴 글이라 메모리에만 둡니다 (서버를 켜면 다음 확인 때 다시 채워짐)
+let inquiries = [];
+export const currentInquiries = () => inquiries;
+
 export function applyInquiries(list) {
   const state = getState();
   const fresh = list.filter((q) => !state.seenInquiries[q.id]);
   for (const q of fresh) state.seenInquiries[q.id] = new Date().toISOString();
-  state.inquiries = Object.fromEntries(list.map((q) => [q.id, q]));
+  inquiries = list;
   return fresh;
 }
 

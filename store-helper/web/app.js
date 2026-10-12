@@ -18,59 +18,91 @@ const timeText = (iso) => {
 };
 const fullAddress = (r) => [r.address1, r.address2].filter(Boolean).join(' ');
 
+try { localStorage.removeItem('password'); } catch { /* 예전 버전이 저장한 비밀번호 삭제 */ }
+
 // ── 상태 ────────────────────────────────────
 const S = {
   data: { orders: [], inquiries: [], lastPolledAt: null, mock: false },
   demo: false,
-  password: store.get('password', ''),
+  loaded: false,
+  problem: '',
   pack: store.get('pack', {}), // orderId → { productOrderId: 넣은 개수 }
   settings: store.get('settings', { sender: '', senderPhone: '', driver: '' }),
   packingId: null,
 };
 
 // ── 서버 통신 ────────────────────────────────
+// 로그인 정보는 서버가 준 HttpOnly 쿠키에 있어서 이 코드에서는 볼 수 없습니다.
 async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: { Authorization: `Bearer ${S.password}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (res.status === 401) { const e = new Error('unauthorized'); e.auth = true; throw e; }
+  let res;
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      headers: { 'X-App': '1', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    const e = new Error('offline'); e.offline = true; throw e;
+  }
   const type = res.headers.get('content-type') || '';
-  if (!res.ok || !type.includes('json')) { const e = new Error('no server'); e.noServer = true; throw e; }
-  return res.json();
+  if (!type.includes('json')) { const e = new Error('no server'); e.noServer = true; throw e; }
+  const json = await res.json();
+  if (!res.ok) { const e = new Error(json.error || '오류'); e.status = res.status; e.data = json; throw e; }
+  return json;
+}
+
+// 서버가 네이버에서 받는 분 정보를 못 가져온 주문은 빈 자리로 표시합니다
+const MISSING = { name: '받는 분 정보 없음', phone: '', zip: '', address1: '', address2: '', missing: true };
+function withPlaceholders(data) {
+  for (const o of data.orders) o.recipient ||= { ...MISSING };
+  return data;
 }
 
 async function load() {
-  if (S.demo) return render();
-  try {
-    S.data = await api('/api/orders');
-    $('#loginSheet').hidden = true;
-  } catch (e) {
-    if (e.auth) { showLogin(); return; }
-    // 서버가 없으면(미리보기 등) 예시 데이터로 보여줍니다
+  // 미리보기 묶음 파일은 window.PREVIEW = true 를 넣어서 만듭니다
+  if (window.PREVIEW && !S.demo) {
     S.demo = true;
     S.data = structuredClone(window.DEMO_DATA);
+  }
+  if (S.demo) return render();
+  try {
+    S.data = withPlaceholders(await api('/api/orders'));
+    S.loaded = true;
+    S.problem = '';
+    $('#loginSheet').hidden = true;
+  } catch (e) {
+    if (e.status === 401) { showLogin(); return; }
+    if (!S.loaded && e.noServer) {
+      // 서버 없이 파일만 올린 곳에서 열면 예시 데이터로 보여줍니다
+      S.demo = true;
+      S.data = structuredClone(window.DEMO_DATA);
+    } else {
+      // 실제 서버인데 잠깐 문제가 생긴 경우: 마지막으로 받은 내용을 그대로 두고 알려줍니다
+      S.problem = e.offline ? '인터넷 연결을 확인하세요' : '서버에 연결하지 못했어요';
+    }
   }
   render();
 }
 
-function showLogin(wrong = false) {
+function showLogin(message = '') {
   $('#loginSheet').hidden = false;
-  $('#loginError').hidden = !wrong;
+  $('#loginError').textContent = message;
+  $('#loginError').hidden = !message;
   $('#password').focus();
 }
 
 $('#loginForm').addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  S.password = $('#password').value;
   try {
-    S.data = await api('/api/orders');
-    store.set('password', S.password);
+    await api('/api/login', { method: 'POST', body: { password: $('#password').value } });
+    $('#password').value = '';
     $('#loginSheet').hidden = true;
-    render();
+    load();
   } catch (e) {
-    if (e.auth) showLogin(true);
+    if (e.status === 401) showLogin(e.data?.locked ? '여러 번 틀려서 15분 동안 잠겼어요.' : '비밀번호가 맞지 않아요. 다시 입력해 주세요.');
+    else if (e.status === 429) showLogin(e.data?.error || '잠시 잠겼어요. 나중에 다시 시도하세요.');
+    else showLogin('서버에 연결하지 못했어요. 잠시 후 다시 시도하세요.');
   }
 });
 
@@ -85,7 +117,9 @@ function render() {
   $('#statInq').closest('.stat').classList.toggle('alert', inquiries.length > 0);
   $('#demoNote').hidden = !S.demo;
   $('#fakeOrder').hidden = !S.data.mock || S.demo;
-  $('#sync').textContent = S.demo ? '예시 화면' : lastPolledAt ? `마지막 확인 ${timeText(lastPolledAt)}` : '확인 대기 중';
+  $('#sync').textContent = S.demo ? '예시 화면' : S.problem || (lastPolledAt ? `마지막 확인 ${timeText(lastPolledAt)}` : '확인 대기 중');
+  $('#sync').classList.toggle('bad', Boolean(S.problem));
+  $('#detailsNote').hidden = !S.data.detailsError;
 
   const sorted = [...orders].sort((a, b) => Boolean(a.packedAt) - Boolean(b.packedAt));
   $('#orders').innerHTML = sorted.length
@@ -110,7 +144,9 @@ function orderCard(o) {
       <span class="order-name">${esc(r.name)}</span>
       <span class="pill${o.packedAt ? ' ok' : ''}">${o.packedAt ? '포장 완료' : `포장 전 · ${total}개`}</span>
     </div>
-    <p class="addr"><span class="zip">(${esc(r.zip)})</span> ${esc(fullAddress(r))}<br><span class="phone">${esc(r.phone)}</span></p>
+    ${r.missing
+      ? '<p class="addr unknown">주소를 불러오지 못했어요. 잠시 후 새로고침하세요.</p>'
+      : `<p class="addr"><span class="zip">(${esc(r.zip)})</span> ${esc(fullAddress(r))}<br><span class="phone">${esc(r.phone)}</span></p>`}
     ${o.memo ? `<p class="memo">배송메모: ${esc(o.memo)}</p>` : ''}
     <ul class="items">
       ${o.items.map((i) => `
@@ -219,7 +255,7 @@ function renderPick(container, onChange) {
   const orders = S.data.orders;
   container.innerHTML = orders.length
     ? orders.map((o) => `
-      <label><input type="checkbox" id="pick-${esc(container.id)}-${esc(o.orderId)}" value="${esc(o.orderId)}" checked>
+      <label><input type="checkbox" id="pick-${esc(container.id)}-${esc(o.orderId)}" value="${esc(o.orderId)}" ${o.recipient.missing ? 'disabled' : 'checked'}>
         <span>${esc(o.recipient.name)} · ${o.items.map((i) => `${esc(i.name)} ×${i.quantity}`).join(', ')}</span></label>`).join('')
     : '<p class="empty">발송할 주문이 없어요.</p>';
   container.onchange = onChange;
@@ -311,10 +347,23 @@ $('#fakeOrder').addEventListener('click', async () => {
   await api('/api/dev/fake-order', { method: 'POST' });
   load();
 });
-$('#logout').addEventListener('click', () => {
-  S.password = '';
-  store.set('password', '');
-  if (!S.demo) showLogin();
+$('#logout').addEventListener('click', async () => {
+  if (S.demo) return;
+  await api('/api/logout', { method: 'POST' }).catch(() => {});
+  showLogin();
+});
+// 모든 기기 로그아웃: 폰을 잃어버렸을 때 씁니다. 실수로 누르지 않게 두 번 눌러야 합니다.
+$('#logoutAll').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  if (S.demo) return;
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = '1';
+    btn.textContent = '정말 모든 기기를 로그아웃할까요? 한 번 더 누르세요';
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = '모든 기기 로그아웃'; }, 5000);
+    return;
+  }
+  await api('/api/logout-all', { method: 'POST' }).catch(() => {});
+  showLogin('모든 기기를 로그아웃했어요. 다시 로그인하세요.');
 });
 
 // ── 시작 ────────────────────────────────────

@@ -1,0 +1,24 @@
+# Caddy 설정 예시: /etc/caddy/Caddyfile 에 넣고 도메인을 바꾸세요.
+# Caddy가 Let's Encrypt 인증서를 자동으로 받아 HTTPS를 켭니다 (무료, 자동 갱신).
+# 무료 도메인이 필요하면 DuckDNS(xxx.duckdns.org) 같은 서비스를 쓸 수 있습니다.
+
+your-name.duckdns.org {
+	encode gzip
+
+	# store-helper 는 127.0.0.1:8080 에서만 듣고, 바깥 접속은 Caddy가 받아서 넘겨줍니다
+	reverse_proxy 127.0.0.1:8080
+
+	header {
+		# 이 주소는 항상 HTTPS로만 열리게 합니다
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# 접속 기록에 쿠키가 남지 않게 합니다
+	log {
+		output file /var/log/caddy/store-helper.log
+		format filter {
+			request>headers>Cookie delete
+		}
+	}
+}

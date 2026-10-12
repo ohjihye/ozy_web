@@ -18,11 +18,15 @@ const env = process.env;
 
 export const config = {
   port: Number(env.PORT || 8080),
+  // 기본은 이 컴퓨터 안에서만 접속 가능. 바깥에서는 Caddy(HTTPS)를 거쳐서 들어옵니다.
+  host: env.HOST || '127.0.0.1',
+  // Caddy 뒤에서 실행할 때 1: 접속한 사람의 실제 IP를 X-Forwarded-For 에서 읽습니다
+  trustProxy: env.TRUST_PROXY === '1',
   appPassword: env.APP_PASSWORD || '',
   appUrl: env.APP_URL || `http://localhost:${env.PORT || 8080}`,
   mock: env.MOCK === '1',
   pollSeconds: Math.max(30, Number(env.POLL_SECONDS || 60)),
-  dataDir: path.join(ROOT, 'data'),
+  dataDir: env.DATA_DIR || path.join(ROOT, 'data'),
   naver: {
     clientId: env.NAVER_CLIENT_ID || '',
     clientSecret: env.NAVER_CLIENT_SECRET || '',
@@ -39,9 +43,14 @@ export const config = {
   },
 };
 
+export const MIN_PASSWORD = 12;
+
+// 실행을 막아야 하는 문제 목록
 export function checkConfig() {
   const problems = [];
   if (!config.appPassword || config.appPassword === 'change-me') problems.push('APP_PASSWORD 를 설정하세요');
+  else if (!config.mock && config.appPassword.length < MIN_PASSWORD)
+    problems.push(`APP_PASSWORD 는 ${MIN_PASSWORD}자 이상으로 정하세요`);
   if (!config.mock && (!config.naver.clientId || !config.naver.clientSecret))
     problems.push('NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 이 필요합니다 (또는 MOCK=1)');
   if (config.notify === 'alimtalk') {
@@ -51,3 +60,16 @@ export function checkConfig() {
   }
   return problems;
 }
+
+// 실행은 하되 경고할 문제 목록
+export function configWarnings() {
+  const warnings = [];
+  if (!config.mock && !config.appUrl.startsWith('https://'))
+    warnings.push('APP_URL 이 https:// 가 아닙니다. HTTPS 없이 실제 주문 정보를 다루지 마세요 (README의 HTTPS 설정 참고)');
+  if (config.host !== '127.0.0.1' && config.host !== 'localhost')
+    warnings.push(`HOST=${config.host}: 서버가 바깥에 직접 열려 있습니다. Caddy 뒤에서만 쓰는 것을 권합니다`);
+  return warnings;
+}
+
+// 로그인 쿠키에 Secure 를 붙일지 (HTTPS 로 운영할 때)
+export const secureCookie = () => config.appUrl.startsWith('https://');

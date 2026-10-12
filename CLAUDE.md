@@ -35,7 +35,7 @@
 착즙 생강청 650g, 착즙 레몬생강청 650g, 생강청 스틱 20개/40개 세트, 레몬생강청 스틱 20개/40개 세트. 상품은 나중에 더 추가됩니다.
 
 ### 비밀 정보 규칙 (공개 저장소)
-- API 키, 비밀번호는 서버 `.env`에만 둡니다. 고객 정보는 서버 `data/`에만 두고, 둘 다 `.gitignore` 처리돼 있습니다.
+- API 키, 비밀번호는 서버 `.env`에만 둡니다. 고객 정보와 문의 내용은 서버 메모리에만 두고 디스크에 쓰지 않습니다(`server/details.js`). `data/`와 `.env`는 `.gitignore` 처리돼 있습니다.
 - 테스트와 예시에는 가짜 데이터만 씁니다. 실제 고객 정보, 전화번호, 키를 커밋하거나 이 파일에 적지 않습니다.
 
 ### 실행과 테스트
@@ -45,7 +45,8 @@ npm test                                  # node --test
 APP_PASSWORD=x MOCK=1 node server/index.js # 가짜 데이터로 실행
 ```
 - 아이폰 미리보기용 artifact: https://claude.ai/artifact/PNFtD48NdmJ4Uxpw28LoYA
-  (web/index.html + style.css + demo-data.js + app.js 를 한 파일로 합쳐서 게시합니다)
+  `python3 store-helper/scripts/build-preview.py <scratchpad>/order-helper.html` 로 한 파일을 만들어 같은 경로로 다시 게시합니다
+  (`window.PREVIEW = true` 가 들어가서 예시 데이터로 열립니다)
 - 화면 확인은 Playwright를 쓰고, `executablePath: '/opt/pw-browsers/chromium'`을 지정합니다.
 
 ## 진행 상황
@@ -53,19 +54,17 @@ APP_PASSWORD=x MOCK=1 node server/index.js # 가짜 데이터로 실행
 ### 완료
 - 서버: 네이버 API 폴링, 주문 묶기·상품 매칭, 알림(콘솔/솔라피 알림톡), 비밀번호로 보호하는 API, 가짜 데이터 모드
 - 웹앱: 주문 목록, 포장 확인(탭해서 세기), 기사님 문자(문자앱 열기, 안드로이드는 연락처에서 고르기), 문의 목록, 설정
-- 테스트 5개 (상품 매칭, 주문 묶기, 이름 가리기, 네이버 응답 정규화, 시간 형식)
+- 보안 보완: 로그인 실패 잠금(IP별 + 전체), HttpOnly 쿠키 토큰 로그인(30일, 비밀번호 변경·모든 기기 로그아웃 시 무효),
+  고객 정보와 문의 내용은 메모리에만(디스크 저장 안 함, 예전 데이터 자동 삭제), X-App 헤더로 CSRF 차단, 보안 헤더(CSP 등),
+  127.0.0.1 바인딩, 비밀번호 12자 이상 강제, Caddy HTTPS 설정 예시(`deploy/Caddyfile.example`)
+- 테스트 21개 (위 5개 + 보안 12개 + 개인정보 캐시 3개 + 예전 데이터 정리 1개)
 
 ### 다음 할 일 (순서대로)
-1. **보안 보완** (서버에 올리기 전에 필수)
-   - 로그인 여러 번 실패하면 잠그기 (IP별)
-   - 비밀번호 대신 기한이 있는 로그인 토큰 쓰기 (비밀번호를 바꾸면 모든 기기 로그아웃)
-   - 서버에 고객 정보를 저장하지 않는 방식 검토 (필요할 때 네이버에서 바로 조회)
-   - HTTPS 적용 안내 (Caddy)
-2. **여러 스토어 구조로 정리**: `server/channels/naver.js`처럼 스토어별 어댑터로 나누고, 주문에 `channel` 필드 추가, products.json에 스토어별 상품명 지원
-3. 커머스API 앱 등록 안내 (어머니 스토어 선택 가능 여부 확인)
-4. Oracle Cloud 서버 설치를 단계별로 안내 (SSH 키, 방화벽 443만, 자동 보안 업데이트)
-5. 카카오톡 채널 개설, 솔라피 가입, 알림톡 템플릿 검수 (README에 템플릿 있음)
-6. 실제 네이버 응답으로 `server/naver.js` 검증 (아직 실제 계정으로 테스트 안 함)
-7. 나중에: 쿠팡 연결
+1. **여러 스토어 구조로 정리**: `server/channels/naver.js`처럼 스토어별 어댑터로 나누고, 주문에 `channel` 필드 추가, products.json에 스토어별 상품명 지원
+2. 커머스API 앱 등록 안내 (어머니 스토어 선택 가능 여부 확인)
+3. Oracle Cloud 서버 설치를 단계별로 안내 (SSH 키, 방화벽 80·443만, 자동 보안 업데이트, DuckDNS + Caddy HTTPS)
+4. 카카오톡 채널 개설, 솔라피 가입, 알림톡 템플릿 검수 (README에 템플릿 있음)
+5. 실제 네이버 응답으로 `server/naver.js` 검증 (아직 실제 계정으로 테스트 안 함)
+6. 나중에: 쿠팡 연결
 
 작업을 마칠 때마다 이 "진행 상황"을 업데이트합니다.
