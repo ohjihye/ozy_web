@@ -60,8 +60,12 @@ store-helper/
 │   ├── index.js        웹 서버 + API (로그인 필요)
 │   ├── auth.js         로그인 토큰, 로그인 실패 잠금
 │   ├── details.js      고객 정보 메모리 보관 (디스크 저장 안 함)
-│   ├── poller.js       주기적으로 새 주문/문의 확인
-│   ├── naver.js        네이버 커머스API 연결
+│   ├── channels/       스토어별 어댑터
+│   │   ├── index.js    스토어 목록과 공통 형식 설명
+│   │   ├── naver.js    네이버 스마트스토어
+│   │   └── mock.js     개발용 가짜 스토어 (MOCK=1)
+│   ├── poller.js       스토어마다 주기적으로 새 주문/문의 확인
+│   ├── naver.js        네이버 커머스API 호출
 │   ├── notify.js       알림 (콘솔 / 카카오 알림톡)
 │   ├── products.js     네이버 상품명 → 우리 상품 매칭
 │   ├── store.js        상태 저장 (data/state.json)
@@ -80,6 +84,25 @@ store-helper/
 ```
 
 목록에 없는 상품이 주문되면 화면에 **미등록 상품**으로 표시됩니다.
+
+스토어마다 상품 이름이 다르면 그 스토어용 규칙을 따로 적을 수 있습니다.
+
+```json
+{ "id": "ginger-650", "name": "착즙 생강청 650g", "color": "#c98a1b",
+  "match": ["생강청", "650"], "exclude": ["레몬", "스틱"],
+  "channels": { "coupang": { "match": ["생강차", "650"], "exclude": ["레몬"] } } }
+```
+
+## 새 스토어 연결하기 (예: 쿠팡)
+
+1. `server/channels/coupang.js`를 `naver.js`와 같은 모양으로 만듭니다. 필요한 함수와 공통 주문 형식은 `server/channels/index.js` 맨 위 설명에 있습니다.
+   - `pending`: 어머니가 포장·발송해야 하는 주문이면 `true` (쿠팡이 직접 배송하는 로켓그로스 주문은 `false`)
+2. `server/channels/index.js`의 `ALL_CHANNELS` 목록에 추가합니다.
+3. `.env`에 그 스토어의 키를 넣고 `config.js`에서 읽게 합니다.
+4. 상품 이름이 다르면 `products.json`에 `channels` 규칙을 추가합니다.
+
+스토어마다 따로 확인하므로 한 스토어에 문제가 생겨도 다른 스토어 알림은 계속 옵니다. 문제가 생긴 스토어는 화면 위쪽에 빨간 글씨로 표시됩니다.
+스토어가 2개 이상이면 주문과 문의마다 스토어 이름이 붙고, 알림에도 `[네이버]`, `[쿠팡]`처럼 표시됩니다.
 
 ## 개발용으로 실행하기 (가짜 데이터)
 

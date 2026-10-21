@@ -1,20 +1,19 @@
 import { config } from './config.js';
-import * as naver from './naver.js';
-import * as mock from './mock.js';
 import { getState, save, prune } from './store.js';
 import { loadProducts, groupOrders } from './products.js';
 import { notifyNewOrders, notifyNewInquiries } from './notify.js';
 import { remember, forget, withoutPersonal } from './details.js';
+import { enabledChannels, tag, tagInquiry } from './channels/index.js';
 
 const FIRST_RUN_DAYS = 3; // 처음 실행 시 며칠 전까지 거슬러 올라가 발송 전 주문을 가져올지
 const OVERLAP_MS = 5 * 60 * 1000; // 조회 구간을 5분 겹쳐서 누락 방지
 
-// 상품주문 목록을 상태에 반영하고, 처음 보는 결제완료 주문을 돌려줍니다.
+// 상품주문 목록(스토어 표시가 붙은 것)을 상태에 반영하고, 처음 보는 처리할 주문을 돌려줍니다.
 export function applyProductOrders(productOrders, { notify = true } = {}) {
   const state = getState();
   const fresh = [];
   for (const po of productOrders) {
-    if (po.status === 'PAYED') {
+    if (po.pending) {
       remember(po); // 개인정보는 메모리에만
       state.productOrders[po.productOrderId] = withoutPersonal(po);
       if (!state.seenProductOrders[po.productOrderId]) {
@@ -32,38 +31,49 @@ export function applyProductOrders(productOrders, { notify = true } = {}) {
 }
 
 // 미답변 문의 목록은 고객이 쓴 글이라 메모리에만 둡니다 (서버를 켜면 다음 확인 때 다시 채워짐)
-let inquiries = [];
-export const currentInquiries = () => inquiries;
+const inquiriesByChannel = new Map();
+export const currentInquiries = () => [...inquiriesByChannel.values()].flat();
 
-export function applyInquiries(list) {
+export function applyInquiries(channelId, list) {
   const state = getState();
   const fresh = list.filter((q) => !state.seenInquiries[q.id]);
   for (const q of fresh) state.seenInquiries[q.id] = new Date().toISOString();
-  inquiries = list;
+  inquiriesByChannel.set(channelId, list);
   return fresh;
+}
+
+// 스토어 하나 확인하기. 실패해도 다른 스토어는 계속 확인합니다.
+async function pollChannel(channel, startedAt) {
+  const state = getState();
+  const cs = (state.channels[channel.id] ||= { lastPolledAt: null, lastError: null });
+  try {
+    const since = cs.lastPolledAt
+      ? new Date(Date.parse(cs.lastPolledAt) - OVERLAP_MS)
+      : new Date(startedAt.getTime() - FIRST_RUN_DAYS * 24 * 3600 * 1000);
+    const orders = (await channel.changedOrders(since, startedAt)).map((po) => tag(channel, po));
+    const newOrders = applyProductOrders(orders);
+    const inquiries = (await channel.unansweredInquiries()).map((q) => tagInquiry(channel, q));
+    const newInquiries = applyInquiries(channel.id, inquiries);
+    cs.lastPolledAt = startedAt.toISOString();
+    cs.lastError = null;
+    return { newOrders, newInquiries };
+  } catch (e) {
+    cs.lastError = { at: startedAt.toISOString(), message: e.message };
+    console.error(`[poll] ${channel.label} 확인 실패:`, e.message);
+    return { newOrders: [], newInquiries: [] };
+  }
 }
 
 export async function pollOnce() {
   const state = getState();
   const startedAt = new Date();
-
-  let newOrders = [];
-  let newInquiries = [];
-  if (config.mock) {
-    // 가짜 모드: 처음 한 번만 예시 주문 2건과 문의 1건을 만듭니다
-    if (!state.lastPolledAt) {
-      newOrders = applyProductOrders([...mock.fakeOrder(), ...mock.fakeOrder()]);
-      newInquiries = applyInquiries([mock.fakeInquiry()]);
-    }
-  } else {
-    const since = state.lastPolledAt
-      ? new Date(Date.parse(state.lastPolledAt) - OVERLAP_MS)
-      : new Date(startedAt.getTime() - FIRST_RUN_DAYS * 24 * 3600 * 1000);
-    const ids = await naver.changedProductOrderIds(since, startedAt);
-    if (ids.length) newOrders = applyProductOrders(await naver.productOrderDetails(ids));
-    newInquiries = applyInquiries(await naver.unansweredInquiries());
+  const newOrders = [];
+  const newInquiries = [];
+  for (const channel of enabledChannels()) {
+    const r = await pollChannel(channel, startedAt);
+    newOrders.push(...r.newOrders);
+    newInquiries.push(...r.newInquiries);
   }
-
   state.lastPolledAt = startedAt.toISOString();
   prune();
   save();

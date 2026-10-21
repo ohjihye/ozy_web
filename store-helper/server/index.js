@@ -9,8 +9,8 @@ import { pollOnce, startPolling, applyProductOrders, currentInquiries } from './
 import { attachDetails } from './details.js';
 import { notifyNewOrders } from './notify.js';
 import * as auth from './auth.js';
-import * as naver from './naver.js';
-import * as mock from './mock.js';
+import { fetchDetails, channelInfo, tag } from './channels/index.js';
+import { mock } from './channels/mock.js';
 
 const WEB = path.join(ROOT, 'web');
 const TYPES = {
@@ -70,10 +70,7 @@ async function readJson(req) {
 
 async function currentOrders() {
   const state = getState();
-  const { list, error } = await attachDetails(
-    Object.values(state.productOrders),
-    config.mock ? null : naver.productOrderDetails,
-  );
+  const { list, error } = await attachDetails(Object.values(state.productOrders), fetchDetails);
   const orders = groupOrders(loadProducts(), list).map((o) => ({ ...o, packedAt: state.packed[o.orderId] || null }));
   return { orders, detailsError: Boolean(error) };
 }
@@ -115,6 +112,12 @@ async function handleApi(req, res, url) {
       detailsError,
       inquiries: currentInquiries(),
       lastPolledAt: state.lastPolledAt,
+      // 스토어별 마지막 확인 시각과 오류 (오류 내용은 짧게만)
+      channels: channelInfo().map((c) => ({
+        ...c,
+        lastPolledAt: state.channels[c.id]?.lastPolledAt || null,
+        failing: Boolean(state.channels[c.id]?.lastError),
+      })),
       mock: config.mock,
     });
   }
@@ -142,7 +145,7 @@ async function handleApi(req, res, url) {
   }
 
   if (req.method === 'POST' && url.pathname === '/api/dev/fake-order' && config.mock) {
-    const fresh = applyProductOrders(mock.fakeOrder());
+    const fresh = applyProductOrders(mock.createOrder().map((po) => tag(mock, po)));
     save();
     await notifyNewOrders(fresh);
     return send(res, 200, { ok: true });

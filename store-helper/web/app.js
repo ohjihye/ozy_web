@@ -22,7 +22,7 @@ try { localStorage.removeItem('password'); } catch { /* 예전 버전이 저장�
 
 // ── 상태 ────────────────────────────────────
 const S = {
-  data: { orders: [], inquiries: [], lastPolledAt: null, mock: false },
+  data: { orders: [], inquiries: [], channels: [], lastPolledAt: null, mock: false },
   demo: false,
   loaded: false,
   problem: '',
@@ -107,8 +107,15 @@ $('#loginForm').addEventListener('submit', async (ev) => {
 });
 
 // ── 화면 그리기 ──────────────────────────────
+const channels = () => S.data.channels || [];
+const channelLabel = (id) => channels().find((c) => c.id === id)?.label || id || '';
+// 스토어가 2개 이상 연결됐을 때만 주문마다 스토어 이름을 붙입니다
+const badge = (id) => (channels().length > 1 ? `<span class="store-badge">${esc(channelLabel(id))}</span>` : '');
+const safeUrl = (u) => (/^https:\/\//.test(u || '') ? u : '#');
+
 function render() {
   const { orders, inquiries, lastPolledAt } = S.data;
+  const failing = channels().filter((c) => c.failing).map((c) => c.label);
   const packed = orders.filter((o) => o.packedAt);
   $('#statOrders').textContent = orders.length;
   $('#statPacked').textContent = packed.length;
@@ -117,8 +124,9 @@ function render() {
   $('#statInq').closest('.stat').classList.toggle('alert', inquiries.length > 0);
   $('#demoNote').hidden = !S.demo;
   $('#fakeOrder').hidden = !S.data.mock || S.demo;
-  $('#sync').textContent = S.demo ? '예시 화면' : S.problem || (lastPolledAt ? `마지막 확인 ${timeText(lastPolledAt)}` : '확인 대기 중');
-  $('#sync').classList.toggle('bad', Boolean(S.problem));
+  const problem = S.problem || (failing.length ? `${failing.join(', ')} 확인이 안 되고 있어요` : '');
+  $('#sync').textContent = S.demo ? '예시 화면' : problem || (lastPolledAt ? `마지막 확인 ${timeText(lastPolledAt)}` : '확인 대기 중');
+  $('#sync').classList.toggle('bad', Boolean(problem));
   $('#detailsNote').hidden = !S.data.detailsError;
 
   const sorted = [...orders].sort((a, b) => Boolean(a.packedAt) - Boolean(b.packedAt));
@@ -129,10 +137,13 @@ function render() {
   $('#inquiries').innerHTML = inquiries.length
     ? inquiries.map((q) => `
       <li class="inquiry">
-        <small>${esc(q.kind)} · ${esc(timeText(q.createdAt))}${q.title ? ` · ${esc(q.title)}` : ''}</small>
+        <small>${badge(q.channel)}${esc(q.kind)} · ${esc(timeText(q.createdAt))}${q.title ? ` · ${esc(q.title)}` : ''}</small>
         <span>${esc(q.content)}</span>
       </li>`).join('')
     : '<li class="empty">답변할 문의가 없어요.</li>';
+
+  $('#adminLinks').innerHTML = channels().map((c) => `
+    <a class="btn wide" href="${esc(safeUrl(c.adminUrl))}" target="_blank" rel="noopener">${esc(c.label)}에서 답변하기</a>`).join('');
 }
 
 function orderCard(o) {
@@ -141,7 +152,7 @@ function orderCard(o) {
   return `
   <li class="order${o.packedAt ? ' packed' : ''}">
     <div class="order-head">
-      <span class="order-name">${esc(r.name)}</span>
+      <span class="order-name">${badge(o.channel)}${esc(r.name)}</span>
       <span class="pill${o.packedAt ? ' ok' : ''}">${o.packedAt ? '포장 완료' : `포장 전 · ${total}개`}</span>
     </div>
     ${r.missing

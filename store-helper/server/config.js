@@ -52,7 +52,7 @@ export function checkConfig() {
   else if (!config.mock && config.appPassword.length < MIN_PASSWORD)
     problems.push(`APP_PASSWORD 는 ${MIN_PASSWORD}자 이상으로 정하세요`);
   if (!config.mock && (!config.naver.clientId || !config.naver.clientSecret))
-    problems.push('NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 이 필요합니다 (또는 MOCK=1)');
+    problems.push('연결할 스토어가 없습니다. NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 을 넣으세요 (또는 MOCK=1)');
   if (config.notify === 'alimtalk') {
     const s = config.solapi;
     if (!s.apiKey || !s.apiSecret || !s.pfId || !s.from || !s.to.length)

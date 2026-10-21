@@ -1,5 +1,8 @@
 import crypto from 'node:crypto';
 import { config } from './config.js';
+import { channelById } from './channels/index.js';
+
+const label = (channelId) => channelById(channelId)?.label || channelId || '';
 
 // 이름 가운데를 가립니다: 김하늘 → 김*늘
 export function maskName(name = '') {
@@ -11,7 +14,7 @@ export function maskName(name = '') {
 export function orderSummary(orders) {
   return orders
     .slice(0, 5)
-    .map((o) => `· ${maskName(o.recipient.name)}님 ${o.items.map((i) => `${i.name} ×${i.quantity}`).join(', ')}`)
+    .map((o) => `· [${label(o.channel)}] ${maskName(o.recipient?.name)}님 ${o.items.map((i) => `${i.name} ×${i.quantity}`).join(', ')}`)
     .join('\n') + (orders.length > 5 ? `\n· 외 ${orders.length - 5}건` : '');
 }
 
@@ -28,8 +31,8 @@ export async function notifyNewOrders(orders) {
 
 export async function notifyNewInquiries(inquiries) {
   if (!inquiries.length) return;
-  const body = inquiries.slice(0, 3).map((q) => `· [${q.kind}] ${q.content.slice(0, 40)}`).join('\n');
-  const text = `💬 새 문의 ${inquiries.length}건\n${body}\n\n스마트스토어센터에서 답변해 주세요.`;
+  const body = inquiries.slice(0, 3).map((q) => `· [${label(q.channel)} ${q.kind}] ${q.content.slice(0, 40)}`).join('\n');
+  const text = `💬 새 문의 ${inquiries.length}건\n${body}\n\n각 스토어 관리 화면에서 답변해 주세요.`;
   await send(text, config.solapi.templateInquiry, { '#{건수}': String(inquiries.length), '#{내용}': body });
 }
 

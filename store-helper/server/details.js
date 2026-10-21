@@ -1,5 +1,3 @@
-import { config } from './config.js';
-
 // 고객 개인정보(받는 분 이름·주소·연락처, 배송메모)는 디스크에 저장하지 않고 메모리에만 잠깐 둡니다.
 // 서버가 꺼지거나 10분이 지나면 사라지고, 화면에서 필요할 때 네이버에서 다시 조회합니다.
 const TTL = 10 * 60 * 1000;
@@ -22,7 +20,7 @@ export function forget(productOrderId) {
   cache.delete(productOrderId);
 }
 
-const fresh = (entry, now) => entry && (config.mock || now - entry.at < TTL);
+const fresh = (entry, now) => entry && now - entry.at < TTL;
 
 // 상품주문 목록에 개인정보를 붙입니다. 캐시에 없으면 fetchDetails(ids)로 다시 조회합니다.
 // 조회에 실패하면 recipient: null 로 돌려주고, 화면에서 "불러오지 못했어요"를 보여줍니다.

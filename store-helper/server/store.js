@@ -13,8 +13,36 @@ const empty = () => ({
   seenProductOrders: {}, // productOrderId → 처음 본 시각 (알림 중복 방지)
   packed: {}, // orderId → 포장 완료 시각
   seenInquiries: {},
+  channels: {}, // 스토어 id → { lastPolledAt, lastError }
   sessionVersion: 0, // 올리면 모든 기기가 로그아웃됩니다
 });
+
+// 스토어가 하나(네이버)뿐이던 예전 버전의 번호에 "naver:" 를 붙입니다
+const withPrefix = (id) => (String(id).includes(':') ? String(id) : `naver:${id}`);
+const rekey = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [withPrefix(k), v]));
+
+function migrateToChannels(s) {
+  const old = Object.keys(s.productOrders).some((k) => !k.includes(':'))
+    || Object.keys(s.seenProductOrders).some((k) => !k.includes(':'))
+    || Object.keys(s.packed).some((k) => !k.includes(':'))
+    || Object.keys(s.seenInquiries).some((k) => !k.includes(':'));
+  if (!old) return false;
+  s.productOrders = Object.fromEntries(Object.values(s.productOrders).map((po) => {
+    const moved = {
+      ...po,
+      channel: po.channel || 'naver',
+      orderId: withPrefix(po.orderId),
+      productOrderId: withPrefix(po.productOrderId),
+      pending: po.pending ?? po.status === 'PAYED',
+    };
+    return [moved.productOrderId, moved];
+  }));
+  s.seenProductOrders = rekey(s.seenProductOrders);
+  s.packed = rekey(s.packed);
+  s.seenInquiries = rekey(s.seenInquiries);
+  if (s.lastPolledAt && !s.channels.naver) s.channels.naver = { lastPolledAt: s.lastPolledAt, lastError: null };
+  return true;
+}
 
 let state = null;
 
@@ -29,10 +57,12 @@ function load() {
   const hadPersonal = 'inquiries' in loaded || Object.values(loaded.productOrders).some((po) => 'recipient' in po);
   delete loaded.inquiries;
   for (const [id, po] of Object.entries(loaded.productOrders)) loaded.productOrders[id] = withoutPersonal(po);
-  if (hadPersonal) {
+  const migrated = migrateToChannels(loaded);
+  if (hadPersonal || migrated) {
     state = loaded;
     save();
-    console.log('[store] 예전에 저장된 고객 정보를 지웠습니다');
+    if (hadPersonal) console.log('[store] 예전에 저장된 고객 정보를 지웠습니다');
+    if (migrated) console.log('[store] 여러 스토어 형식으로 바꿨습니다');
   }
   return loaded;
 }

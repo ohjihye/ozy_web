@@ -101,6 +101,11 @@ h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wra
 .item-name { flex: 1; min-width: 0; }
 .qty { font-family: var(--font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
 .unknown { color: var(--warn); font-size: 14px; }
+.store-badge {
+  display: inline-block; vertical-align: middle; margin-right: 8px; padding: 2px 8px; border-radius: 6px;
+  border: 1px solid var(--line); font: 600 13px var(--font-body); color: var(--muted);
+}
+.admin-links { display: grid; gap: 8px; }
 .empty { text-align: center; color: var(--muted); padding: 32px 0; }
 
 .inquiry { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 4px; }
